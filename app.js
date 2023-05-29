@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import format from 'date-fns/format/index.js';
 import dotenv from 'dotenv'
 import fs from 'fs'
 import http from 'http'
@@ -25,10 +26,11 @@ const app = new App({
 })
 
 // Optional: Get & log the authenticated app's name
-const { data } = await app.octokit.request('/app')
+const appInfoRequest = await app.octokit.request('/app')
+const appData = appInfoRequest.data;
 
 // Read more about custom logging: https://github.com/octokit/core.js#logging
-app.octokit.log.debug(`Authenticated as '${data.name}'`)
+app.octokit.log.debug(`Authenticated as '${appData.name}'`)
 
 // Subscribe to the "pull_request.opened" webhook event
 app.webhooks.onAny(async (event) => {
@@ -74,25 +76,42 @@ http.createServer(middleware).listen(port, () => {
   console.log(`${chalk.greenBright('WEBHOOK SERVER')} is listening for events at: ${chalk.greenBright(localWebhookUrl)}`)
 })
 
-// Create a local server to handle AUTH REQ
-const authPort = 8000;
-const authPath = "/auth";
-const localAuthServerUrl = `http://localhost:${authPort}${authPath}`
+// Create a local server to handle PROJECT REQ
+const projectPort = 8000;
+const projectPath = "/projects";
+const localProjectServerUrl = `http://localhost:${projectPort}${projectPath}`
 http.createServer((req, res) => {
+  console.log(`${req.method} : ${req.url} -- ${format(Date.now(), 'PPPpp')}`);
+
   res.setHeader('Access-Control-Allow-Origin', '*');
-	res.setHeader('Access-Control-Request-Method', '*');
-	res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET');
-	res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Request-Method', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', '*');
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  if ( req.method === 'OPTIONS' ) {
-		res.writeHead(200);
-		res.end();
-		return;
-	}
-  res.end(JSON.stringify({
-    data: 'Hello World!',
-  }));
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const repos = [];
+
+  app.eachRepository(({ octokit, repository }) => {
+    repos.push({
+      description: repository.description,
+      id: repository.id, 
+      name: repository.name, 
+      owner: { id: repository.owner.id, login: repository.owner.login, type: repository.owner.type },
+      private: repository.private,
+      url: repository.url,
+    });
+  }).then(() => {
+    res.end(JSON.stringify({
+      id: appData.id,
+      repos,
+    }));
+  }).catch((error) => error ?? console.error(error))
 }).listen(8000, () => {
-  console.log(`${chalk.yellowBright('AUTH SERVER')} is listening for requests at: ${chalk.yellowBright(localAuthServerUrl)}`);
-  console.log('Press Ctrl + C to quit.')
+  console.log(`${chalk.yellowBright('PROJECT SERVER')} is listening for requests at: ${chalk.yellowBright(localProjectServerUrl)}`);
+  console.log('Press Ctrl + C to quit.\n')
 })
