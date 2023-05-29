@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/actuallyCodeAlex/babbletron-middleware#readme",
   "devDependencies": {
+    "chalk": "5.2.0",
     "smee-client": "1.2.3",
     "standard": "17.0.0"
   },
