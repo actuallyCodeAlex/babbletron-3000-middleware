@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Middleware server/software for babbletron-3000.",
   "private": true,
+  "type": "module",
   "scripts": {
     "server": "node app.js",
     "lint": "standard",
