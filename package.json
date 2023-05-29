@@ -1,0 +1,30 @@
+{
+  "name": "babbletron-middleware",
+  "version": "0.1.0",
+  "description": "Middleware server/software for babbletron-3000.",
+  "private": true,
+  "scripts": {
+    "server": "node app.js",
+    "lint": "standard",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "webproxy-listen": "npx smee -u https://smee.io/e6apQm9bWdkvQjA2 -t http://localhost:3000/api/webhook"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/actuallyCodeAlex/babbletron-middleware.git"
+  },
+  "author": "Alex Lee (www.actuallyReallyAlex.com)",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/actuallyCodeAlex/babbletron-middleware/issues"
+  },
+  "homepage": "https://github.com/actuallyCodeAlex/babbletron-middleware#readme",
+  "devDependencies": {
+    "smee-client": "1.2.3",
+    "standard": "17.0.0"
+  },
+  "dependencies": {
+    "dotenv": "16.0.3",
+    "octokit": "2.0.14"
+  }
+}
