@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import dotenv from 'dotenv'
 import fs from 'fs'
 import http from 'http'
@@ -62,7 +63,7 @@ app.webhooks.onError((error) => {
 })
 
 // Launch a web server to listen for GitHub webhooks
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 5000
 const path = '/api/webhook'
 const localWebhookUrl = `http://localhost:${port}${path}`
 
@@ -70,6 +71,28 @@ const localWebhookUrl = `http://localhost:${port}${path}`
 const middleware = createNodeMiddleware(app.webhooks, { path })
 
 http.createServer(middleware).listen(port, () => {
-  console.log(`Server is listening for events at: ${localWebhookUrl}`)
+  console.log(`${chalk.greenBright('WEBHOOK SERVER')} is listening for events at: ${chalk.greenBright(localWebhookUrl)}`)
+})
+
+// Create a local server to handle AUTH REQ
+const authPort = 8000;
+const authPath = "/auth";
+const localAuthServerUrl = `http://localhost:${authPort}${authPath}`
+http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+	res.setHeader('Access-Control-Request-Method', '*');
+	res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET');
+	res.setHeader('Access-Control-Allow-Headers', '*');
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  if ( req.method === 'OPTIONS' ) {
+		res.writeHead(200);
+		res.end();
+		return;
+	}
+  res.end(JSON.stringify({
+    data: 'Hello World!',
+  }));
+}).listen(8000, () => {
+  console.log(`${chalk.yellowBright('AUTH SERVER')} is listening for requests at: ${chalk.yellowBright(localAuthServerUrl)}`);
   console.log('Press Ctrl + C to quit.')
 })
