@@ -8,7 +8,7 @@
     "server": "node app.js",
     "lint": "standard",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "webproxy-listen": "npx smee -u https://smee.io/e6apQm9bWdkvQjA2 -t http://localhost:3000/api/webhook"
+    "webproxy:listen": "npx smee -u https://smee.io/e6apQm9bWdkvQjA2 -t http://localhost:3000/api/webhook"
   },
   "repository": {
     "type": "git",
