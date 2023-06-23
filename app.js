@@ -4,16 +4,19 @@ import dotenv from 'dotenv'
 import fs from 'fs'
 import http from 'http'
 import { Octokit, App } from 'octokit'
+import { createAppAuth } from '@octokit/auth-app'
+import { request } from '@octokit/request'
 import { createNodeMiddleware } from '@octokit/webhooks'
 
 // Load environment variables from .env file
 dotenv.config()
 
 // Set configured values
-const appId = process.env.APP_ID
-const privateKeyPath = process.env.PRIVATE_KEY_PATH
-const privateKey = fs.readFileSync(privateKeyPath, 'utf8')
-const secret = process.env.WEBHOOK_SECRET
+const appId = process.env.APP_ID;
+const privateKeyPath = process.env.PRIVATE_KEY_PATH;
+const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+const secret = process.env.WEBHOOK_SECRET;
+const installationId = process.env.INSTALLATION_ID
 // const messageForNewPRs = fs.readFileSync('./message.md', 'utf8')
 
 // Create an authenticated Octokit client authenticated as a GitHub App
@@ -23,7 +26,15 @@ const app = new App({
   webhooks: {
     secret
   }
-})
+});
+
+const auth = createAppAuth({ appId, id: 1, privateKey, installationId });
+
+const requestWithAuth = request.defaults({
+  request: {
+    hook: auth.hook,
+  }
+});
 
 // Optional: Get & log the authenticated app's name
 const appInfoRequest = await app.octokit.request('/app')
@@ -80,37 +91,70 @@ http.createServer(middleware).listen(port, () => {
 const projectPort = 8000;
 const projectPath = "/projects";
 const localProjectServerUrl = `http://localhost:${projectPort}${projectPath}`
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
   console.log(`${req.method} : ${req.url} -- ${format(Date.now(), 'PPPpp')}`);
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Request-Method', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET');
-  res.setHeader('Access-Control-Allow-Headers', '*');
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
+  const localUrl = `http://localhost:${projectPort}${req.url}`
+  const url = new URL(localUrl);
+
+  if (url.pathname === '/repos' && req.method === 'GET') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Request-Method', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
+    const repos = [];
+
+    app.eachRepository(({ octokit, repository }) => {
+      repos.push({
+        description: repository.description,
+        id: repository.id,
+        name: repository.name,
+        owner: { id: repository.owner.id, login: repository.owner.login, type: repository.owner.type },
+        private: repository.private,
+        url: repository.url,
+      });
+    }).then(() => {
+      res.end(JSON.stringify({
+        id: appData.id,
+        repos,
+      }));
+    }).catch((error) => error ?? console.error(error));
+
     return;
   }
 
-  const repos = [];
+  if (url.pathname === '/repo' && req.method === 'GET') {
+    const owner = url.searchParams.get('owner');
+    const repo = url.searchParams.get('repo');
+    const path = 'README.md';
 
-  app.eachRepository(({ octokit, repository }) => {
-    repos.push({
-      description: repository.description,
-      id: repository.id, 
-      name: repository.name, 
-      owner: { id: repository.owner.id, login: repository.owner.login, type: repository.owner.type },
-      private: repository.private,
-      url: repository.url,
-    });
-  }).then(() => {
-    res.end(JSON.stringify({
-      id: appData.id,
-      repos,
-    }));
-  }).catch((error) => error ?? console.error(error))
+    try {
+      const result = await requestWithAuth(`GET /repos/${owner}/${repo}/contents/${path}`)
+      const content = Buffer.from(result.data.content, 'base64').toString();
+      console.log({ content })
+
+      res.setHeader('Access-Control-Allow-Origin', '*') // TODO - Change this for security
+      res.writeHead(200);
+      res.end(JSON.stringify({ content }));
+      return;
+    } catch (error) {
+      console.error(error);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error }));
+      return;
+    }
+  }
+
+  res.writeHead(401);
+  res.end();
+  return;
 }).listen(8000, () => {
   console.log(`${chalk.yellowBright('PROJECT SERVER')} is listening for requests at: ${chalk.yellowBright(localProjectServerUrl)}`);
   console.log('Press Ctrl + C to quit.\n')
